@@ -1,12 +1,18 @@
 import tkinter as tk
 from tkinter import ttk
-import sqlite3
-import random
+
 from datetime import datetime
+import pyodbc
+
+conn_str = """
+Driver={ODBC Driver 17 for SQL Server};
+Server=LAPTOP-12OGD3V1;
+Database=ShopQuanAo;
+Trusted_Connection=yes;
+"""
 
 def giao_dien_doanhthu(frame):
 
-    # ===== CLEAR =====
     for w in frame.winfo_children():
         w.destroy()
 
@@ -16,34 +22,6 @@ def giao_dien_doanhthu(frame):
 
     main = tk.Frame(frame, bg="#ecf0f1")
     main.pack(fill="both", expand=True, padx=20)
-
-    # ===== DATABASE =====
-    conn = sqlite3.connect("shop.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS doanhthu(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ten TEXT,
-            tongtien INTEGER,
-            ngay TEXT
-        )
-    """)
-
-    # ===== TẠO DATA RANDOM =====
-    cursor.execute("SELECT COUNT(*) FROM doanhthu")
-    if cursor.fetchone()[0] == 0:
-        for i in range(50):  # 50 dòng dữ liệu
-            thang = random.randint(1, 12)
-            ngay = f"2026-{str(thang).zfill(2)}-{random.randint(1,28)}"
-            tien = random.randint(100000, 2000000)
-
-            cursor.execute(
-                "INSERT INTO doanhthu(ten, tongtien, ngay) VALUES(?,?,?)",
-                (f"Khách {i}", tien, ngay)
-            )
-
-        conn.commit()
 
     # ===== CHỌN THÁNG =====
     top = tk.Frame(main, bg="#ecf0f1")
@@ -72,7 +50,6 @@ def giao_dien_doanhthu(frame):
 
     tree.pack(fill="both", expand=True, pady=10)
 
-    # ===== MÀU =====
     tree.tag_configure("even", background="#ecf0f1")
     tree.tag_configure("odd", background="#d5dbdb")
 
@@ -80,21 +57,30 @@ def giao_dien_doanhthu(frame):
     def load():
         tree.delete(*tree.get_children())
 
-        thang = thang_cb.get().zfill(2)
+        thang = thang_cb.get()
         if not thang:
             return
 
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+
         tong = 0
 
-        for i, row in enumerate(cursor.execute(
-            "SELECT ten, tongtien, ngay FROM doanhthu WHERE strftime('%m', ngay)=?",
-            (thang,)
-        )):
+        query = """
+            SELECT TenKhach, TongTien, Ngay
+            FROM HoaDonPy
+            WHERE MONTH(Ngay) = ?
+        """
+
+        for i, row in enumerate(cursor.execute(query, int(thang))):
             tag = "even" if i % 2 == 0 else "odd"
+
             tree.insert("", "end", values=row, tags=(tag,))
             tong += row[1]
 
         tong_label.config(text=f"{tong:,} VND")
+
+        conn.close()
 
     tk.Button(top, text="Xem",
               bg="#3498db", fg="white",
