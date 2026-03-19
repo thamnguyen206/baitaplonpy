@@ -1,4 +1,10 @@
 import tkinter as tk
+conn_str = """
+Driver={ODBC Driver 17 for SQL Server};
+Server=LAPTOP-12OGD3V1;
+Database=ShopQuanAo;
+Trusted_Connection=yes;
+"""
 
 def giao_dien_hoadon(parent):
     # Xóa nội dung cũ
@@ -90,9 +96,62 @@ def giao_dien_hoadon(parent):
 
         tong_label.config(text=f"Tổng tiền: {tong}")
 
+   
+     # ===== XỬ LÝ NÚT =====
+    def luu_hoa_don():
+         import pyodbc
+         from datetime import datetime
+
+         if len(danh_sach) == 0:
+            print("Chưa có sản phẩm")
+            return
+
+         ten = entry_ten.get()
+         sdt = entry_sdt.get()
+         diachi = entry_diachi.get()
+
+         tong_tien = sum(tt for _, _, _, tt in danh_sach)
+
+         conn = pyodbc.connect(conn_str)
+         cursor = conn.cursor()
+
+    # ===== Lưu hóa đơn =====
+         cursor.execute("""
+            INSERT INTO HoaDonPy (TenKhach, SDT, DiaChi, TongTien)
+            VALUES (?, ?, ?, ?)
+         """, (ten, sdt, diachi, tong_tien))
+
+         cursor.execute("SELECT @@IDENTITY")
+         ma_hd = cursor.fetchone()[0]
+
+    # ===== Lưu chi tiết =====
+         for sp, gia, sl, tt in danh_sach:
+           cursor.execute("""
+               INSERT INTO ChiTietHoaDonPy
+               (MaHoaDon, TenSanPham, Gia, SoLuong, ThanhTien)
+               VALUES (?, ?, ?, ?, ?)
+             """, (ma_hd, sp, gia, sl, tt))
+
+         conn.commit()
+         conn.close()
+
+         print("✅ Lưu thành công vào DB Python")
+         
+         
+    def mo_thong_ke():
+        print("Mở thống kê doanh thu")
+
+        try:
+            from doanhthu import giao_dien_doanh_thu
+            giao_dien_doanh_thu(parent)
+        except:
+            print("Chưa có giao diện doanh thu")
+
     # ===== BUTTON =====
     tk.Button(main, text="Lưu hóa đơn",
-              bg="#3498db", fg="white").pack(pady=5)
+              bg="#3498db", fg="white",
+              command=luu_hoa_don).pack(pady=5)
 
     tk.Button(main, text="Thống kê doanh thu",
-              bg="#f39c12", fg="white").pack(pady=5)
+              bg="#f39c12", fg="white",
+              command=mo_thong_ke).pack(pady=5)
